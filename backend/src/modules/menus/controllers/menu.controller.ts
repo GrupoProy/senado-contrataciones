@@ -1,0 +1,52 @@
+import { Request, Response, NextFunction } from 'express';
+import { MenuService } from '../services/menu.service';
+
+const service = new MenuService();
+
+export class MenuController {
+  async listar(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await service.listar();
+      res.json({ success: true, data: result });
+    } catch (e) { next(e); }
+  }
+
+  async misMenus(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await service.listarPorUsuario(req.user!.usuarioId);
+      res.json({ success: true, data: result });
+    } catch (e) { next(e); }
+  }
+
+  async obtenerPorId(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await service.obtenerPorId(Number(req.params.id));
+      res.json({ success: true, data: result });
+    } catch (e) { next(e); }
+  }
+
+  async crear(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await service.crear(req.body, req.user!.username);
+      res.status(201).json({ success: true, data: result });
+    } catch (e) { next(e); }
+  }
+
+  async actualizar(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await service.actualizar(Number(req.params.id), req.body, req.user!.username);
+      res.json({ success: true, data: result });
+    } catch (e) { next(e); }
+  }
+
+  async cambiarEstado(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await service.cambiarEstado(
+        Number(req.params.id),
+        req.body.estado,
+        req.user!.username
+      );
+      res.json({ success: true, data: result });
+    } catch (e) { next(e); }
+  }
+}

@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./backend
+    container_name: contrataciones_backend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./backend/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # Conectar a tu BD local
+    restart: always # ✅ Le decimos que se reinicie si falla
+    networks:
+      - contrataciones_network
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: contrataciones_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: always
+    networks:
+      - contrataciones_network
+
+networks:
+  contrataciones_network:
+    driver: bridge
