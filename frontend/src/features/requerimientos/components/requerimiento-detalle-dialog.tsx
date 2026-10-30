@@ -21,7 +21,7 @@ import { useHistorial } from '@/features/seguimiento/hooks/use-seguimiento';
 import { useRequerimiento } from '../hooks/use-requerimientos';
 import { DerivarDialog } from './derivar-dialog';
 import { formatDate, formatDateTime, cn } from '@/lib/utils';
-import { imprimirReporteDerivacion } from '@/lib/print-utils';
+import { generarPdfDerivacion } from '@/lib/pdf-utils';
 
 interface Props {
   requerimientoId: number | null;
@@ -42,7 +42,7 @@ function formatBs(value: number | null | undefined): string {
 }
 
 export function RequerimientoDetalleDialog({ requerimientoId, open, onOpenChange }: Props) {
-  const { data: req, isLoading } = useRequerimiento(requerimientoId);
+  const { data: req, isLoading, refetch } = useRequerimiento(requerimientoId);
   const { data: historial, isLoading: loadingHistorial } = useHistorial(requerimientoId);
   const [derivarOpen, setDerivarOpen] = useState(false);
 
@@ -50,17 +50,14 @@ export function RequerimientoDetalleDialog({ requerimientoId, open, onOpenChange
 
   const puedeDerivar = req?.estadoCodigo === 'REGISTRADO';
 
-  // ✅ Lógica para imprimir el reporte
-  const handleImprimir = () => {
+  // ✅ Función que acepta el código generado o usa el de la BD
+  const handleGenerarPdf = (codigoDerivado?: string) => {
     if (!req) return;
 
-    // Buscamos el último código de derivación en el historial (si existe)
-    const ultimaDerivacion =
-      historial?.data?.find((h: any) => h.codigoDerivacion)?.codigoDerivacion || 'N/A';
+    const codigoFinal = codigoDerivado || req.codigo || 'S/N';
 
-    imprimirReporteDerivacion({
-      codigoRequerimiento: req.codigo || 'S/N',
-      codigoDerivacion: ultimaDerivacion,
+    generarPdfDerivacion({
+      codigoRequerimiento: codigoFinal,
       fecha: new Date().toLocaleString('es-BO'),
       titulo: req.titulo,
       nroCertificacion: req.nroCertificacion,
@@ -68,9 +65,9 @@ export function RequerimientoDetalleDialog({ requerimientoId, open, onOpenChange
       personaDocumento: req.personaDocumento || '',
       cargoNombre: req.cargoNombre || '',
       unidadSolicitante: req.unidadSolicitanteNombre || '',
-      unidadDestino: req.unidadActualNombre || '',
+      unidadDestino: req.unidadActualNombre || 'DIRECCION DE RECURSOS HUMANOS',
       observaciones: req.observacionFinal || '',
-      usuarioEnvio: req.usuarioCreacion || '',
+      usuarioEnvio: req.usuarioCreacion || 'Sistema',
     });
   };
 
@@ -78,11 +75,11 @@ export function RequerimientoDetalleDialog({ requerimientoId, open, onOpenChange
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-h-[95vh] overflow-y-auto sm:max-w-4xl">
-          {/* ✅ Cabecera con botón de impresión */}
           <DialogHeader className="flex flex-row items-center justify-between border-b border-border pb-4">
             <DialogTitle>Detalle del requerimiento</DialogTitle>
+            {/* El botón superior solo aparece si ya tiene código guardado en BD */}
             {req && req.codigo && (
-              <Button variant="outline" size="sm" onClick={handleImprimir}>
+              <Button variant="outline" size="sm" onClick={() => handleGenerarPdf()}>
                 <Printer className="mr-2 size-4" /> Imprimir Reporte
               </Button>
             )}
@@ -175,7 +172,6 @@ export function RequerimientoDetalleDialog({ requerimientoId, open, onOpenChange
                   <InfoRow label="Código" value={req.codigo ?? '—'} mono icon={Hash} />
                   <InfoRow label="Código grupo" value={req.codigoGrupo ?? '—'} mono />
                   <InfoRow label="Certificación" value={req.nroCertificacion} />
-
                   <InfoRow
                     label="Tipo Requerimiento"
                     value={req.tipoRequerimientoNombre || req.tipoRequerimiento || '—'}
@@ -184,7 +180,6 @@ export function RequerimientoDetalleDialog({ requerimientoId, open, onOpenChange
                     label="Tipo Contrato"
                     value={req.tipoContratoNombre || req.tipoContrato || '—'}
                   />
-
                   <InfoRow label="Código del cargo" value={req.cargoCodigo ?? '—'} mono />
                   <InfoRow label="Cargo" value={req.cargoNombre ?? '—'} />
                   <InfoRow label="Salario del cargo" value={formatBs(req.cargoSalarioMes)} />
@@ -227,7 +222,17 @@ export function RequerimientoDetalleDialog({ requerimientoId, open, onOpenChange
       </Dialog>
 
       {req && (
-        <DerivarDialog requerimiento={req} open={derivarOpen} onOpenChange={setDerivarOpen} />
+        <DerivarDialog
+          requerimiento={req}
+          open={derivarOpen}
+          onOpenChange={setDerivarOpen}
+          onSuccess={(res) => {
+            setDerivarOpen(false);
+            // ✅ Al derivar, generamos el PDF con el nuevo código y actualizamos la vista
+            handleGenerarPdf(res.codigoRequerimiento);
+            refetch(); // Refrescamos el requerimiento para que el modal muestre el código
+          }}
+        />
       )}
     </>
   );

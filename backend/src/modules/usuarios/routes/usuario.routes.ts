@@ -106,4 +106,12 @@ router.put(
   controller.actualizar
 );
 
+// ... tus importaciones
+
+// Agrega esta ruta (usualmente junto a las demás rutas PATCH o PUT)
+router.patch(
+  '/:id/desbloquear',
+  requirePermission('USUARIOS_EDITAR'), // O el permiso que uses para editar usuarios
+  controller.desbloquear
+);
 export default router;

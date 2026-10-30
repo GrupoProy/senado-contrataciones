@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, Plus, Pencil } from 'lucide-react';
+import { Users, Plus, Pencil, Unlock } from 'lucide-react'; // ✅ Importamos Unlock
 import { PageHeader } from '@/components/shared/page-header';
 import { SearchInput } from '@/components/shared/search-input';
 import { DataTable, type Column } from '@/components/shared/data-table';
@@ -7,7 +7,8 @@ import { UserStatusBadge } from '@/components/shared/user-status-badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useDebounce } from '@/hooks/use-debounce';
-import { useUsuarios } from '../hooks/use-usuarios';
+// ✅ Importamos el nuevo hook
+import { useUsuarios, useDesbloquearUsuario } from '../hooks/use-usuarios';
 import { getInitials, formatRelative } from '@/lib/utils';
 import { UsuarioFormDialog } from '../components/usuario-form-dialog';
 import { UsuarioDetalleDialog } from '../components/usuario-detalle-dialog';
@@ -27,6 +28,9 @@ export function UsuariosPage() {
     limit: 20,
     search: debounced || undefined,
   });
+
+  // ✅ Hook de desbloqueo
+  const desbloquear = useDesbloquearUsuario();
 
   const columns: Column<Usuario>[] = [
     {
@@ -87,18 +91,37 @@ export function UsuariosPage() {
     {
       key: 'acciones',
       header: '',
-      className: 'w-[80px] text-right',
+      className: 'w-[100px] text-right', // Aumentamos un poco el ancho
       render: (u) => (
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            setEditarId(u.id);
-          }}
-        >
-          <Pencil className="size-4" />
-        </Button>
+        <div className="flex justify-end gap-1">
+          {/* ✅ BOTÓN DE DESBLOQUEAR (Solo aparece si está bloqueado) */}
+          {(u.estado === 'BLO' || u.bloqueado_hasta) && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-amber-600 hover:bg-amber-50 hover:text-amber-700"
+              onClick={(e) => {
+                e.stopPropagation();
+                desbloquear.mutate(u.id);
+              }}
+              title="Desbloquear usuario"
+              disabled={desbloquear.isPending}
+            >
+              <Unlock className="size-4" />
+            </Button>
+          )}
+
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditarId(u.id);
+            }}
+          >
+            <Pencil className="size-4" />
+          </Button>
+        </div>
       ),
     },
   ];

@@ -222,4 +222,11 @@ export class SeguimientoController {
       res.json({ success: true, data: result });
     } catch (e) { next(e); }
   }
+
+  async recibirMasivo(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await service.recibirMasivo(req.body, req.user!.usuarioId, req.user!.username);
+      res.json({ success: true, data: result });
+    } catch (e) { next(e); }
+  }
 }

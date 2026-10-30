@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-
 import {
   seguimientoApi,
   type DerivarPosteriorInput,
@@ -14,11 +13,12 @@ import type {
   FinalizarInput,
   RechazarInput,
   AccionResponse,
+  RecibirMasivoInput,
+  DerivarMasivoInput,
+  RegistrarFirmaInput, // ✅ Importado correctamente
 } from '../types/seguimiento-types';
 
-// ═══════════════════════════════════════════════════════════════════════
-// QUERIES
-// ═══════════════════════════════════════════════════════════════════════
+// ... (Queries: useHistorial, useBandejaSeguimiento, etc. sin cambios)
 
 export function useHistorial(requerimientoId: number | null) {
   return useQuery({
@@ -49,7 +49,6 @@ export function useSeguimientoStats() {
   });
 }
 
-// ✅ Hooks del Checklist
 export function useChecklist(requerimientoId: number | null) {
   return useQuery({
     queryKey: ['seguimiento', 'checklist', requerimientoId],
@@ -71,10 +70,7 @@ export function useGuardarChecklist() {
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// HELPER: invalidación común
-// ═══════════════════════════════════════════════════════════════════════
-
+// ─── Helper de invalidación ───
 function useInvalidarSeguimiento() {
   const qc = useQueryClient();
   return (requerimientoId?: number) => {
@@ -88,10 +84,39 @@ function useInvalidarSeguimiento() {
   };
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// MUTATIONS
-// ═══════════════════════════════════════════════════════════════════════
+// ─── Mutaciones Masivas ───
+export function useRecibirMasivo() {
+  const invalidar = useInvalidarSeguimiento();
+  return useMutation({
+    mutationFn: (input: RecibirMasivoInput) => seguimientoApi.recibirMasivo(input),
+    onSuccess: (res: any) => {
+      invalidar();
+      const total = res?.data?.resultados?.filter((r: any) => r.success).length || 0;
+      toast.success('Recepción masiva completada', {
+        description: `${total} requerimientos recibidos correctamente.`,
+      });
+    },
+    onError: (e) => toast.error(getErrorMessage(e)),
+  });
+}
 
+export function useDerivarMasivoPosterior() {
+  const invalidar = useInvalidarSeguimiento();
+  return useMutation({
+    mutationFn: (input: DerivarMasivoInput) => seguimientoApi.derivarMasivoPosterior(input),
+    onSuccess: (res: any) => {
+      invalidar();
+      const data = res?.data || res;
+      toast.success(`Derivación masiva exitosa`, {
+        description: `Lote: ${data.codigoRequerimientoLote} (${data.totalRequerimientos} reqs)`,
+        duration: 8000,
+      });
+    },
+    onError: (e) => toast.error(getErrorMessage(e)),
+  });
+}
+
+// ─── Mutaciones Simples ───
 function useAccionMutation<TInput extends { requerimientoId: number }>(
   fn: (input: TInput) => Promise<AccionResponse>,
   label: string
@@ -173,8 +198,9 @@ export function useEnviarFirma() {
   );
 }
 
+// ✅ CORRECCIÓN AQUÍ: Usamos RegistrarFirmaInput en lugar de AccionSimpleInput
 export function useRegistrarFirma() {
-  return useAccionMutation<AccionSimpleInput>(
+  return useAccionMutation<RegistrarFirmaInput>(
     (input) => seguimientoApi.registrarFirma(input),
     'Firma registrada'
   );

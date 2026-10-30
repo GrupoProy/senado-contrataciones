@@ -22,7 +22,7 @@ const PRIORIDAD_STYLES: Record<string, string> = {
   MEDIA: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
   ALTA: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
   URGENTE: 'bg-red-500/10 text-red-600 border-red-500/20',
-  URGENTE01: 'bg-red-500/10 text-red-600 border-red-500/20', // Mantenemos el que tenías
+  URGENTE01: 'bg-red-500/10 text-red-600 border-red-500/20',
 };
 
 function formatBs(value: number | null | undefined): string {
@@ -72,7 +72,6 @@ export function SeguimientoDetalleDialog({ requerimientoId, open, onOpenChange }
                 )}
               </div>
 
-              {/* Cabecera con 4 columnas */}
               <div className="grid gap-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
                 <InfoItem icon={User} label="Persona">
                   <p className="font-medium">{req.personaNombres ?? '—'}</p>
@@ -99,10 +98,13 @@ export function SeguimientoDetalleDialog({ requerimientoId, open, onOpenChange }
                 </InfoItem>
               </div>
 
-              {/* ✅ AQUÍ PASAMOS LA FUNCIÓN PARA QUE SE CIERRE EL MODAL AL TENER ÉXITO */}
+              {/* ✅ Le pasamos los campos extra requeridos por el PDF */}
               <AccionesWorkflow
                 requerimiento={{
                   id: req.id,
+                  codigo: req.codigo,
+                  titulo: req.titulo,
+                  nroCertificacion: req.nroCertificacion,
                   estadoCodigo: req.estadoCodigo,
                   personaNombres: req.personaNombres,
                   personaDocumento: req.personaDocumento,

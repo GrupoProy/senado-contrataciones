@@ -20,7 +20,7 @@ import {
   aprobarSchema,
   finalizarSchema,
   rechazarSchema,
-  noSubsanadoSchema,
+  noSubsanadoSchema, recibirMasivoSchema ,
 } from '../dto/seguimiento.dto';
 
 const router = Router();
@@ -157,5 +157,7 @@ router.post(
   validate(noSubsanadoSchema),
   controller.noSubsanado
 );
+
+router.post('/recibir-masivo', requirePermission('REQUERIMIENTOS_RECIBIR'), validate(recibirMasivoSchema), controller.recibirMasivo);
 
 export default router;

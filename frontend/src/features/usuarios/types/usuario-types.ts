@@ -9,6 +9,9 @@ export interface Usuario {
   tipo_documento: string | null;
   numero_documento: string | null;
   estado: string;
+  intentos_fallidos: number;
+  bloqueado_hasta?: string | null;
+  debe_cambiar_password: boolean;
   unidad_id: number | null;
   unidad_nombre: string | null;
   rol_codigo: string | null;

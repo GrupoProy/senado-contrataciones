@@ -120,3 +120,15 @@ export function useReactivarRol() {
     onError: (e) => toast.error(getErrorMessage(e)),
   });
 }
+
+export function useDesbloquearUsuario() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => usuariosApi.desbloquear(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['usuarios'] });
+      toast.success('Usuario desbloqueado exitosamente');
+    },
+    onError: (e) => toast.error(getErrorMessage(e)),
+  });
+}

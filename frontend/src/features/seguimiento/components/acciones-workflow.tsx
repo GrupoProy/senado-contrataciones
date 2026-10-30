@@ -11,7 +11,7 @@ import {
   Send,
   ArrowRight,
   Info,
-  FileCheck2, // ✅ Importamos el ícono del checklist
+  FileCheck2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -34,8 +34,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useUnidades } from '@/features/unidades/hooks/use-unidades';
+import { DatePicker } from '@/components/shared/date-picker';
+import { useAuthStore } from '@/stores/auth-store';
+import { generarPdfDerivacion } from '@/lib/pdf-utils';
 
-// ✅ Importamos el nuevo modal del Checklist
 import { ChecklistRequisitosModal } from './checklist-requisitos-modal';
 
 import {
@@ -43,7 +45,6 @@ import {
   useIniciarRevision,
   useConcluirRevision,
   useElaborarContrato,
-  useEnviarFirma,
   useRegistrarFirma,
   useObservar,
   useSubsanar,
@@ -58,6 +59,9 @@ import type { TipoAccion } from '../types/seguimiento-types';
 
 export interface RequerimientoParaAcciones {
   id: number;
+  codigo: string | null;
+  titulo: string | null;
+  nroCertificacion: string | null;
   estadoCodigo: string;
   personaNombres: string | null;
   personaDocumento: string | null;
@@ -75,7 +79,6 @@ interface Props {
   onActionSuccess?: () => void;
 }
 
-// ✅ Agregamos 'CHECKLIST' al tipo
 type TipoAccionExtendida = TipoAccion | 'DERIVAR' | 'CHECKLIST';
 
 interface AccionConfig {
@@ -101,7 +104,7 @@ const ACCIONES: Record<string, Record<string, AccionConfig[]>> = {
         requiereObservacion: true,
         requiereUnidadResponsable: true,
       },
-      { tipo: 'CHECKLIST', label: 'Verificar Requisitos', icon: FileCheck2 }, // ✅ Botón del Checklist
+      { tipo: 'CHECKLIST', label: 'Verificar Requisitos', icon: FileCheck2 },
       { tipo: 'CONCLUIR_REVISION', label: 'Concluir revisión', icon: CheckCircle2 },
       {
         tipo: 'RECHAZAR',
@@ -138,11 +141,7 @@ const ACCIONES: Record<string, Record<string, AccionConfig[]>> = {
   DGAL: {
     PENDIENTE_RECEPCION: [{ tipo: 'RECIBIR', label: 'Recibir', icon: Inbox }],
     RECIBIDO: [
-      {
-        tipo: 'ELABORAR_CONTRATO',
-        label: 'Elaborar contrato',
-        icon: FileSignature,
-      },
+      { tipo: 'ELABORAR_CONTRATO', label: 'Elaborar contrato', icon: FileSignature },
       {
         tipo: 'OBSERVAR',
         label: 'Observar',
@@ -152,16 +151,11 @@ const ACCIONES: Record<string, Record<string, AccionConfig[]>> = {
       },
     ],
     EN_ELABORACION_CONTRATO: [
-      { tipo: 'ENVIAR_FIRMA', label: 'Enviar a firma', icon: FileSignature },
+      { tipo: 'REGISTRAR_FIRMA', label: 'Registrar firma', icon: ShieldCheck },
     ],
     PARA_FIRMA: [{ tipo: 'REGISTRAR_FIRMA', label: 'Registrar firma', icon: ShieldCheck }],
     FIRMADO: [
-      {
-        tipo: 'DERIVAR',
-        label: 'Derivar a OFICIALIA MAYOR',
-        icon: Send,
-        destinoHint: 'OFICIALIA_MAYOR',
-      },
+      { tipo: 'DERIVAR', label: 'Derivar a Of. Mayor', icon: Send, destinoHint: 'OFICINA_MAYOR' },
     ],
     OBSERVADO: [
       {
@@ -176,12 +170,7 @@ const ACCIONES: Record<string, Record<string, AccionConfig[]>> = {
     PENDIENTE_RECEPCION: [{ tipo: 'RECIBIR', label: 'Recibir', icon: Inbox }],
     RECIBIDO: [
       { tipo: 'APROBAR_CONTRATO', label: 'Aprobar', icon: ShieldCheck, variant: 'success' },
-      {
-        tipo: 'OBSERVAR',
-        label: 'Devolver a DGAL',
-        icon: AlertCircle,
-        requiereObservacion: true,
-      },
+      { tipo: 'OBSERVAR', label: 'Devolver a DGAL', icon: AlertCircle, requiereObservacion: true },
       {
         tipo: 'RECHAZAR',
         label: 'Rechazar',
@@ -203,12 +192,7 @@ const ACCIONES: Record<string, Record<string, AccionConfig[]>> = {
       },
     ],
     APROBADO: [
-      {
-        tipo: 'DERIVAR',
-        label: 'Derivar a DRH (cierre)',
-        icon: Send,
-        destinoHint: ' (cierre)',
-      },
+      { tipo: 'DERIVAR', label: 'Derivar a DRH (cierre)', icon: Send, destinoHint: 'DRH (cierre)' },
     ],
   },
 };
@@ -217,7 +201,6 @@ export function AccionesWorkflow({ requerimiento, unidadCodigo, onActionSuccess 
   const [accionActiva, setAccionActiva] = useState<AccionConfig | null>(null);
   const [checklistOpen, setChecklistOpen] = useState(false);
 
-  // ✅ Obtenemos el checklist actual para validar en el frontend
   const { data: checklist } = useChecklist(requerimiento.id);
 
   const acciones =
@@ -238,7 +221,6 @@ export function AccionesWorkflow({ requerimiento, unidadCodigo, onActionSuccess 
             if (accion.tipo === 'CHECKLIST') {
               setChecklistOpen(true);
             } else if (accion.tipo === 'CONCLUIR_REVISION') {
-              // ✅ VALIDACIÓN FRONTEND: Verificamos que todos los items estén checkeados
               const todosVerificados =
                 checklist && checklist.length > 0 && checklist.every((c: any) => c.verificado);
 
@@ -275,6 +257,7 @@ export function AccionesWorkflow({ requerimiento, unidadCodigo, onActionSuccess 
     </div>
   );
 }
+
 interface DialogProps {
   accion: AccionConfig | null;
   requerimiento: RequerimientoParaAcciones;
@@ -288,17 +271,16 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
   const [unidadResponsableId, setUnidadResponsableId] = useState<number | null>(null);
   const [resultadoFinal, setResultadoFinal] = useState('FINALIZADO');
   const [tipoFinalizacion, setTipoFinalizacion] = useState('PROCESO_COMPLETADO');
-
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
   const [fechaFirma, setFechaFirma] = useState('');
 
+  const user = useAuthStore((state) => state.usuario);
   const { data: unidades } = useUnidades({ soloActivas: true });
   const recibir = useRecibir();
   const iniciarRevision = useIniciarRevision();
   const concluirRevision = useConcluirRevision();
   const elaborarContrato = useElaborarContrato();
-  const enviarFirma = useEnviarFirma();
   const registrarFirma = useRegistrarFirma();
   const observar = useObservar();
   const subsanar = useSubsanar();
@@ -309,19 +291,24 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
   const derivar = useDerivarPosterior();
 
   useEffect(() => {
-    if (accion?.tipo !== 'ELABORAR_CONTRATO') return;
-    const hoy = new Date();
-    const fechaHoyStr = toISO(hoy);
-    const inicio = requerimiento.fechaInicioPrevista?.slice(0, 10) ?? fechaHoyStr;
-    let fin = requerimiento.fechaFinPrevista?.slice(0, 10);
-    if (!fin) {
-      const d = new Date(inicio);
-      d.setFullYear(d.getFullYear() + 1);
-      fin = toISO(d);
+    if (accion?.tipo === 'ELABORAR_CONTRATO') {
+      const hoy = new Date();
+      const fechaHoyStr = toISO(hoy);
+      const inicio = requerimiento.fechaInicioPrevista?.slice(0, 10) ?? fechaHoyStr;
+      let fin = requerimiento.fechaFinPrevista?.slice(0, 10);
+      if (!fin) {
+        const d = new Date(inicio);
+        d.setFullYear(d.getFullYear() + 1);
+        fin = toISO(d);
+      }
+      setFechaDesde(inicio);
+      setFechaHasta(fin);
     }
-    setFechaDesde(inicio);
-    setFechaHasta(fin);
-    setFechaFirma('');
+
+    if (accion?.tipo === 'REGISTRAR_FIRMA') {
+      const hoy = new Date();
+      setFechaFirma(toISO(hoy));
+    }
   }, [accion, requerimiento]);
 
   if (!accion) return null;
@@ -331,7 +318,6 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
     iniciarRevision.isPending ||
     concluirRevision.isPending ||
     elaborarContrato.isPending ||
-    enviarFirma.isPending ||
     registrarFirma.isPending ||
     observar.isPending ||
     subsanar.isPending ||
@@ -352,7 +338,7 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
   };
 
   const ejecutar = () => {
-    const onSuccess = () => {
+    const onSuccessBase = () => {
       limpiarYcerrar();
       onActionSuccess?.();
     };
@@ -362,17 +348,17 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
       case 'RECIBIR':
         return recibir.mutate(
           { requerimientoId: reqId, observaciones: observaciones || null },
-          { onSuccess }
+          { onSuccess: onSuccessBase }
         );
       case 'INICIAR_REVISION':
         return iniciarRevision.mutate(
           { requerimientoId: reqId, observaciones: observaciones || null },
-          { onSuccess }
+          { onSuccess: onSuccessBase }
         );
       case 'CONCLUIR_REVISION':
         return concluirRevision.mutate(
           { requerimientoId: reqId, observaciones: observaciones || null },
-          { onSuccess }
+          { onSuccess: onSuccessBase }
         );
       case 'ELABORAR_CONTRATO':
         return elaborarContrato.mutate(
@@ -380,20 +366,18 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
             requerimientoId: reqId,
             fechaDesde: fechaDesde || undefined,
             fechaHasta: fechaHasta || undefined,
-            fechaFirma: fechaFirma || null,
             observaciones: observaciones || null,
           },
-          { onSuccess }
-        );
-      case 'ENVIAR_FIRMA':
-        return enviarFirma.mutate(
-          { requerimientoId: reqId, observaciones: observaciones || null },
-          { onSuccess }
+          { onSuccess: onSuccessBase }
         );
       case 'REGISTRAR_FIRMA':
         return registrarFirma.mutate(
-          { requerimientoId: reqId, observaciones: observaciones || null },
-          { onSuccess }
+          {
+            requerimientoId: reqId,
+            fechaFirma: fechaFirma,
+            observaciones: observaciones || null,
+          },
+          { onSuccess: onSuccessBase }
         );
       case 'OBSERVAR':
         if (accion.requiereUnidadResponsable && !unidadResponsableId) {
@@ -406,14 +390,17 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
             observaciones,
             unidadResponsableObservacionId: unidadResponsableId ?? undefined,
           },
-          { onSuccess }
+          { onSuccess: onSuccessBase }
         );
       case 'SUBSANAR':
-        return subsanar.mutate({ requerimientoId: reqId, observaciones }, { onSuccess });
+        return subsanar.mutate(
+          { requerimientoId: reqId, observaciones },
+          { onSuccess: onSuccessBase }
+        );
       case 'APROBAR_CONTRATO':
         return aprobar.mutate(
           { requerimientoId: reqId, observaciones: observaciones || null },
-          { onSuccess }
+          { onSuccess: onSuccessBase }
         );
       case 'FINALIZAR':
         return finalizar.mutate(
@@ -423,16 +410,54 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
             tipoFinalizacionCodigo: tipoFinalizacion,
             observaciones: observaciones || null,
           },
-          { onSuccess }
+          { onSuccess: onSuccessBase }
         );
       case 'RECHAZAR':
-        return rechazar.mutate({ requerimientoId: reqId, observaciones, motivo }, { onSuccess });
+        return rechazar.mutate(
+          { requerimientoId: reqId, observaciones, motivo },
+          { onSuccess: onSuccessBase }
+        );
       case 'NO_SUBSANADO':
-        return noSubsanado.mutate({ requerimientoId: reqId, observaciones, motivo }, { onSuccess });
+        return noSubsanado.mutate(
+          { requerimientoId: reqId, observaciones, motivo },
+          { onSuccess: onSuccessBase }
+        );
+
       case 'DERIVAR':
         return derivar.mutate(
           { requerimientoId: reqId, motivo: motivo || null, observaciones: observaciones || null },
-          { onSuccess }
+          {
+            onSuccess: (res: any) => {
+              const data = res?.data || res;
+              const usuarioNombre = user ? `${user.nombres} ${user.primerApellido}` : 'Sistema';
+
+              // ✅ BUSCAMOS EL NOMBRE COMPLETO DE LA UNIDAD DESTINO
+              // Usamos el ID que devuelve el backend o buscamos por el código del destinoHint
+              const codDestino = accion.destinoHint?.replace(' (cierre)', '');
+              const unidadDestinoObj = data.unidadDestinoId
+                ? unidades?.find((u) => u.id === data.unidadDestinoId)
+                : unidades?.find((u) => u.codigo === codDestino);
+
+              const nombreUnidadDestino = unidadDestinoObj?.nombre || accion.destinoHint || '—';
+
+              generarPdfDerivacion({
+                codigoRequerimiento: data.codigoRequerimiento || requerimiento.codigo || 'S/N',
+                fecha: new Date().toLocaleString('es-BO'),
+                titulo: requerimiento.titulo || '',
+                nroCertificacion: requerimiento.nroCertificacion || '',
+                personaNombres: requerimiento.personaNombres || '',
+                personaDocumento: requerimiento.personaDocumento || '',
+                cargoNombre: requerimiento.cargoNombre || '',
+                unidadSolicitante: requerimiento.unidadActualNombre || '—', // Origen
+                unidadDestino: nombreUnidadDestino, // ✅ Nombre completo
+                observaciones: observaciones || 'Ninguna',
+                usuarioEnvio: usuarioNombre,
+                esMasivo: false,
+              });
+
+              onSuccessBase();
+            },
+          }
         );
       default:
         return;
@@ -443,7 +468,8 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
     (!accion.requiereObservacion || observaciones.trim().length >= 5) &&
     (!accion.requiereMotivo || motivo.trim().length >= 5) &&
     (!accion.requiereUnidadResponsable || unidadResponsableId !== null) &&
-    (accion.tipo !== 'ELABORAR_CONTRATO' || (fechaDesde && fechaHasta));
+    (accion.tipo !== 'ELABORAR_CONTRATO' || (fechaDesde && fechaHasta)) &&
+    (accion.tipo !== 'REGISTRAR_FIRMA' || fechaFirma !== '');
 
   const mostrarObservaciones =
     accion.requiereObservacion ||
@@ -453,11 +479,11 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
       'RECIBIR',
       'INICIAR_REVISION',
       'CONCLUIR_REVISION',
-      'ENVIAR_FIRMA',
       'REGISTRAR_FIRMA',
       'DERIVAR',
     ].includes(accion.tipo);
   const esContrato = accion.tipo === 'ELABORAR_CONTRATO';
+  const esRegistrarFirma = accion.tipo === 'REGISTRAR_FIRMA';
 
   return (
     <Dialog open={!!accion} onOpenChange={(o) => !o && limpiarYcerrar()}>
@@ -474,9 +500,11 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
               <DialogDescription>
                 {esContrato
                   ? 'Se creará el contrato con los datos del requerimiento.'
-                  : accion.tipo === 'DERIVAR' && accion.destinoHint
-                    ? `El requerimiento pasará a ${accion.destinoHint}.`
-                    : 'Esta acción actualizará el estado del requerimiento.'}
+                  : esRegistrarFirma
+                    ? 'Indique la fecha de firma del contrato.'
+                    : accion.tipo === 'DERIVAR' && accion.destinoHint
+                      ? `El requerimiento pasará a ${accion.destinoHint}.`
+                      : 'Esta acción actualizará el estado del requerimiento.'}
               </DialogDescription>
             </div>
           </div>
@@ -547,17 +575,19 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
                       onChange={(e) => setFechaHasta(e.target.value)}
                     />
                   </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Fecha de firma</Label>
-                    <Input
-                      type="date"
-                      value={fechaFirma}
-                      onChange={(e) => setFechaFirma(e.target.value)}
-                    />
-                  </div>
                 </div>
               </div>
             </>
+          )}
+
+          {!esContrato && esRegistrarFirma && (
+            <div className="space-y-2">
+              <Label>Fecha de Firma *</Label>
+              <DatePicker value={fechaFirma} onChange={setFechaFirma} />
+              <p className="text-[10px] text-muted-foreground">
+                Seleccione la fecha en la que se firmó el contrato físico.
+              </p>
+            </div>
           )}
 
           {!esContrato && accion.requiereUnidadResponsable && (

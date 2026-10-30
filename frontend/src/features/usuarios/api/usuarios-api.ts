@@ -59,4 +59,7 @@ export const usuariosApi = {
     apiClient.patch<{ message: string }>(`/usuarios/${id}/roles/${usuarioRolId}/reactivar`, {
       motivo,
     }),
+
+  desbloquear: (id: number) =>
+    apiClient.patch<{ success: boolean; message: string }>(`/usuarios/${id}/desbloquear`, {}),
 };

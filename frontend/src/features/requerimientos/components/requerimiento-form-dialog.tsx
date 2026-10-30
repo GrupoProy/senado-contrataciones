@@ -49,6 +49,7 @@ import {
 import { cn } from '@/lib/utils';
 import type { Requerimiento } from '../types/requerimiento-types';
 
+// ─── Schema ────────────────────────────────────────────────────────────────
 const schema = z
   .object({
     nroCertificacion: z
@@ -120,7 +121,7 @@ export function RequerimientoFormDialog({ open, onOpenChange, requerimientoAEdit
     limit: 100,
     soloActivos: true,
   });
-  const { data: senadores, isLoading: loadingSenadores } = useSenadores({
+  const { data: senadores } = useSenadores({
     page: 1,
     limit: 100,
     soloActivos: true,
@@ -174,7 +175,7 @@ export function RequerimientoFormDialog({ open, onOpenChange, requerimientoAEdit
   } = useBuscarPersona(tipoDoc, nroDoc, comp);
   const { data: procesoActivo } = useProcesoActivoPersona(personaBuscada?.id || null);
 
-  // ✅ 1. Preparar las opciones para los combos con búsqueda
+  // ✅ Preparar las opciones para los combos con búsqueda
   const unidadesOptions = (unidades ?? []).map((u) => ({
     value: u.id.toString(),
     label: u.nombre,
@@ -617,7 +618,6 @@ export function RequerimientoFormDialog({ open, onOpenChange, requerimientoAEdit
             <section className="space-y-4">
               <h3 className="text-sm font-semibold">Asignación</h3>
               <div className="grid gap-4 sm:grid-cols-2">
-                {/* ✅ UNIDAD SOLICITANTE CON BÚSQUEDA */}
                 <div className="space-y-2">
                   <Label>Unidad solicitante *</Label>
                   <Controller
@@ -638,7 +638,6 @@ export function RequerimientoFormDialog({ open, onOpenChange, requerimientoAEdit
                   )}
                 </div>
 
-                {/* ✅ CARGO CON BÚSQUEDA */}
                 <div className="space-y-2">
                   <Label>Cargo *</Label>
                   <Controller
@@ -659,7 +658,6 @@ export function RequerimientoFormDialog({ open, onOpenChange, requerimientoAEdit
                   )}
                 </div>
 
-                {/* ✅ SENADOR CON BÚSQUEDA */}
                 <div className="space-y-2 sm:col-span-2">
                   <Label>Senador (opcional)</Label>
                   <Controller
@@ -677,7 +675,6 @@ export function RequerimientoFormDialog({ open, onOpenChange, requerimientoAEdit
                   />
                 </div>
 
-                {/* FECHAS CON CALENDARIO BLOQUEADO */}
                 <div className="space-y-2">
                   <Label>Fecha inicio prevista</Label>
                   <Controller

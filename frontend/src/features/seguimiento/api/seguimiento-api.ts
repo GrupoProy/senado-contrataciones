@@ -9,9 +9,11 @@ import type {
   FinalizarInput,
   RechazarInput,
   AccionResponse,
+  RecibirMasivoInput,
+  DerivarMasivoInput,
+  RegistrarFirmaInput,
 } from '../types/seguimiento-types';
 
-// ─── Derivar posterior ─────────────────────────────────────────────────
 export interface DerivarPosteriorInput {
   requerimientoId: number;
   motivo?: string | null;
@@ -26,7 +28,6 @@ export interface DerivarPosteriorResponse {
   unidadDestinoId: number;
 }
 
-// ─── API ───────────────────────────────────────────────────────────────
 export const seguimientoApi = {
   historial: (requerimientoId: number, page = 1, limit = 50) =>
     apiClient.get<HistorialResponse>(`/seguimiento/requerimiento/${requerimientoId}`, {
@@ -34,7 +35,6 @@ export const seguimientoApi = {
       limit,
     }),
 
-  // El backend ya devuelve camelCase → no hace falta mapear
   bandeja: (page = 1, limit = 20) =>
     apiClient.get<PaginatedResponse<BandejaSeguimientoItem>>('/seguimiento/bandeja', {
       page,
@@ -44,8 +44,16 @@ export const seguimientoApi = {
   derivarPosterior: (input: DerivarPosteriorInput) =>
     apiClient.post<DerivarPosteriorResponse>('/seguimiento/derivar', input),
 
+  // ✅ Derivación masiva posterior
+  derivarMasivoPosterior: (input: DerivarMasivoInput) =>
+    apiClient.post<any>('/seguimiento/derivar-masivo', input),
+
   recibir: (input: AccionSimpleInput) =>
     apiClient.post<AccionResponse>('/seguimiento/recibir', input),
+
+  // ✅ Recepción masiva
+  recibirMasivo: (input: RecibirMasivoInput) =>
+    apiClient.post<any>('/seguimiento/recibir-masivo', input),
 
   iniciarRevision: (input: AccionSimpleInput) =>
     apiClient.post<AccionResponse>('/seguimiento/iniciar-revision', input),
@@ -59,20 +67,15 @@ export const seguimientoApi = {
     fechaHasta?: string;
     fechaFirma?: string | null;
     observaciones?: string | null;
-  }) =>
-    apiClient.post<{
-      contratoId: number;
-      numeroContrato: string;
-      seguimientoId: number;
-      estadoDestino: string;
-      unidadDestinoId: number | null;
-      salarioMes: number | null;
-    }>('/seguimiento/elaborar-contrato', input),
+  }) => apiClient.post<any>('/seguimiento/elaborar-contrato', input),
 
   enviarFirma: (input: AccionSimpleInput) =>
     apiClient.post<AccionResponse>('/seguimiento/enviar-firma', input),
 
-  registrarFirma: (input: AccionSimpleInput) =>
+  //registrarFirma: (input: AccionSimpleInput) =>
+  //apiClient.post<AccionResponse>('/seguimiento/registrar-firma', input),
+
+  registrarFirma: (input: RegistrarFirmaInput) =>
     apiClient.post<AccionResponse>('/seguimiento/registrar-firma', input),
 
   observar: (input: ObservarInput) =>

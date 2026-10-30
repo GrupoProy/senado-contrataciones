@@ -20,9 +20,10 @@ interface Props {
   requerimiento: Requerimiento | null;
   open: boolean;
   onOpenChange: (o: boolean) => void;
+  onSuccess?: (res: { codigoRequerimiento: string; codigoDerivacion: string }) => void;
 }
 
-export function DerivarDialog({ requerimiento, open, onOpenChange }: Props) {
+export function DerivarDialog({ requerimiento, open, onOpenChange, onSuccess }: Props) {
   const derivar = useDerivar();
   const [motivo, setMotivo] = useState('');
   const [observaciones, setObservaciones] = useState('');
@@ -33,18 +34,26 @@ export function DerivarDialog({ requerimiento, open, onOpenChange }: Props) {
     derivar.mutate(
       {
         id: requerimiento.id,
-        input: {
-          motivo: motivo || null,
-          observaciones: observaciones || null,
-        },
+        input: { motivo: motivo || null, observaciones: observaciones || null },
       },
       {
-        onSuccess: (res) => {
-          toast.success(`Derivado. Código ${res.codigoDerivacion}`, {
-            description: `Req: ${res.codigoRequerimiento}`,
+        onSuccess: (res: any) => {
+          // ✅ Extraemos la data por si viene envuelta en { success, data }
+          const data = res?.data || res;
+
+          toast.success(`Derivado. Código ${data?.codigoDerivacion || 'OK'}`, {
+            description: `Req: ${data?.codigoRequerimiento || 'Generado'}`,
             duration: 8000,
           });
+
           onOpenChange(false);
+
+          // ✅ Pasamos los códigos extraídos de forma segura
+          onSuccess?.({
+            codigoRequerimiento: data?.codigoRequerimiento,
+            codigoDerivacion: data?.codigoDerivacion,
+          });
+
           setMotivo('');
           setObservaciones('');
         },
@@ -118,8 +127,7 @@ export function DerivarDialog({ requerimiento, open, onOpenChange }: Props) {
           </Button>
           <Button onClick={handleSubmit} disabled={derivar.isPending}>
             {derivar.isPending && <Loader2 className="animate-spin" />}
-            <Send />
-            Derivar
+            <Send /> Derivar
           </Button>
         </DialogFooter>
       </DialogContent>

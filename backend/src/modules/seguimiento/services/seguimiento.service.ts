@@ -8,7 +8,7 @@ import {
 } from '../../../shared/errors/AppError';
 import { generarCodigoDerivacion, generarCodigoRequerimiento, generarNumeroContrato } from '../../../shared/utils/codigo.util';
 import {
-  DerivarDto, DerivarMasivoDto, RecibirDto, IniciarRevisionDto, ConcluirRevisionDto,
+  DerivarDto, DerivarMasivoDto, RecibirDto, RecibirMasivoDto, IniciarRevisionDto, ConcluirRevisionDto,
   ElaborarContratoDto, EnviarFirmaDto, RegistrarFirmaDto, ObservarDto, SubsanarDto,
   AprobarDto, FinalizarDto, RechazarDto, NoSubsanadoDto,
 } from '../dto/seguimiento.dto';
@@ -45,6 +45,27 @@ export class SeguimientoService {
 
   async recibir(dto: RecibirDto, usuarioId: number, username: string) {
     return this.ejecutarAccionSimple({ accion: 'RECIBIR', requerimientoId: dto.requerimientoId, usuarioId, username, observaciones: dto.observaciones ?? null, motivo: null });
+  }
+
+  async recibirMasivo(dto: RecibirMasivoDto, usuarioId: number, username: string) {
+    const resultados = [];
+
+    for (const reqId of dto.requerimientoIds) {
+      try {
+        const res = await this.ejecutarAccionSimple({ 
+          accion: 'RECIBIR', 
+          requerimientoId: reqId, 
+          usuarioId, 
+          username, 
+          observaciones: dto.observaciones ?? null, 
+          motivo: null 
+        });
+        resultados.push({ requerimientoId: reqId, success: true, seguimientoId: res.seguimientoId });
+      } catch (error: any) {
+        resultados.push({ requerimientoId: reqId, success: false, error: error.message });
+      }
+    }
+    return { mensaje: 'Proceso de recepción masiva completado', resultados };
   }
 
   async iniciarRevision(dto: IniciarRevisionDto, usuarioId: number, username: string) {
@@ -188,8 +209,29 @@ export class SeguimientoService {
   }
 
   async enviarFirma(dto: EnviarFirmaDto, usuarioId: number, username: string) { return this.ejecutarAccionSimple({ accion: 'ENVIAR_FIRMA', requerimientoId: dto.requerimientoId, usuarioId, username, observaciones: dto.observaciones ?? null, motivo: null }); }
-  async registrarFirma(dto: RegistrarFirmaDto, usuarioId: number, username: string) { return this.ejecutarAccionSimple({ accion: 'REGISTRAR_FIRMA', requerimientoId: dto.requerimientoId, usuarioId, username, observaciones: dto.observaciones ?? null, motivo: null }); }
-  
+  async registrarFirma(dto: RegistrarFirmaDto, usuarioId: number, username: string) {
+    // 1. Ejecutamos el cambio de estado normal
+    const result = await this.ejecutarAccionSimple({ 
+      accion: 'REGISTRAR_FIRMA', 
+      requerimientoId: dto.requerimientoId, 
+      usuarioId, 
+      username, 
+      observaciones: dto.observaciones ?? null, 
+      motivo: null 
+    });
+
+    // ✅ 2. Actualizamos la fecha de firma en el contrato
+    await query(
+      `UPDATE ${this.schema}.contrato 
+          SET fecha_firma = $1,
+              usuario_ultima_modificacion = $2, 
+              fecha_ultima_modificacion = CURRENT_TIMESTAMP
+        WHERE requerimiento_id = $3`,
+      [dto.fechaFirma, username, dto.requerimientoId]
+    );
+
+    return result;
+  }  
   async observar(dto: ObservarDto, usuarioId: number, username: string) { 
     return this.ejecutarAccionSimple({ 
       accion: 'OBSERVAR', 
@@ -277,7 +319,7 @@ export class SeguimientoService {
         if (uOrigen.rows[0]?.codigo === 'DGAL' && uDestino.rows[0]?.codigo === 'OM') {
           const contrato = await client.query<{ count: string }>(`SELECT COUNT(*)::text AS count FROM ${this.schema}.contrato WHERE requerimiento_id = $1`, [r.id]);
           if (parseInt(contrato.rows[0].count, 10) === 0) {
-            throw new ValidationError('No se puede derivar a Oficina Mayor sin un contrato elaborado. Por favor, realice la acción "Elaborar contrato" primero.');
+            throw new ValidationError('No se puede derivar a Oficialía Mayor sin un contrato elaborado. Por favor, realice la acción "Elaborar contrato" primero.');
           }
         }
       }
@@ -345,7 +387,7 @@ export class SeguimientoService {
           if (uOrigen.rows[0]?.codigo === 'DGAL' && uDestino.rows[0]?.codigo === 'OM') {
             const contrato = await client.query<{ count: string }>(`SELECT COUNT(*)::text AS count FROM ${this.schema}.contrato WHERE requerimiento_id = $1`, [r.id]);
             if (parseInt(contrato.rows[0].count, 10) === 0) {
-              throw new ValidationError(`Requerimiento ${reqId}: no se puede derivar a Oficina Mayor sin un contrato elaborado.`);
+              throw new ValidationError(`Requerimiento ${reqId}: no se puede derivar a Oficialía Mayor sin un contrato elaborado.`);
             }
           }
         }

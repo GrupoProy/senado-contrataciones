@@ -27,7 +27,6 @@ export interface Seguimiento {
   motivo: string | null;
   usuarioCreacion: string;
   fechaCreacion: string;
-  // Campos con JOIN
   unidadOrigenNombre: string | null;
   unidadOrigenSigla: string | null;
   unidadDestinoNombre: string | null;
@@ -69,10 +68,15 @@ export interface AccionSimpleInput {
   observaciones?: string | null;
 }
 
+export interface RegistrarFirmaInput {
+  requerimientoId: number;
+  fechaFirma: string;
+  observaciones?: string | null;
+}
+
 export interface ObservarInput {
   requerimientoId: number;
   observaciones: string;
-  //unidadResponsableObservacionId: number;
   unidadResponsableObservacionId?: number;
 }
 
@@ -113,3 +117,15 @@ export type TipoAccion =
   | 'FINALIZAR'
   | 'RECHAZAR'
   | 'NO_SUBSANADO';
+
+// ✅ Nuevas interfaces para acciones masivas
+export interface RecibirMasivoInput {
+  requerimientoIds: number[];
+  observaciones?: string | null;
+}
+
+export interface DerivarMasivoInput {
+  requerimientoIds: number[];
+  motivo?: string | null;
+  observaciones?: string | null;
+}

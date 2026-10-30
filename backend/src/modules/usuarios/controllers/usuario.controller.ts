@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { UsuarioService } from '../services/usuario.service';
 import { ListarUsuariosDto } from '../dto/usuario.dto';
+import { query } from '../../../config/database'; 
 
 const service = new UsuarioService();
 
@@ -197,4 +198,26 @@ export class UsuarioController {
       next(e);
     }
   }
+
+
+  // src/modules/usuarios/controllers/usuario.controller.ts
+async desbloquear(req: Request, res: Response, next: NextFunction) {
+  try {
+    const id = Number(req.params.id);
+    // 1. Resetea los intentos y el bloqueo en la BD
+    await query(
+      `UPDATE contrataciones.usuario 
+          SET intentos_fallidos = 0, bloqueado_hasta = NULL, estado = 'ACT', 
+              usuario_ultima_modificacion = $1, fecha_ultima_modificacion = CURRENT_TIMESTAMP
+        WHERE id = $2`,
+      [req.user!.username, id]
+    );
+    
+    // 2. (Opcional) Si usas un store de rate-limit, aquí podrías llamar a loginLimiter.resetKey(...)
+    
+    res.json({ success: true, message: 'Usuario desbloqueado correctamente' });
+  } catch (e) {
+    next(e);
+  }
+}
 }

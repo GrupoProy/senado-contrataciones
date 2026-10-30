@@ -471,8 +471,8 @@ export class AuthService {
 
   private leerParametrosAuth(): ParametrosAuth {
     return {
-      maxIntentos: parametroService.getInt('AUTH_MAX_LOGIN_ATTEMPTS', 5),
-      minutosBloqueo: parametroService.getInt('AUTH_LOCK_MINUTES', 15),
+      maxIntentos: parametroService.getInt('AUTH_MAX_LOGIN_ATTEMPTS', 10),
+      minutosBloqueo: parametroService.getInt('AUTH_LOCK_MINUTES', 1),
       minutosAccessToken: parametroService.getInt('AUTH_ACCESS_TOKEN_MINUTES', 15),
       diasRefreshToken: parametroService.getInt('AUTH_REFRESH_TOKEN_DAYS', 7),
     };

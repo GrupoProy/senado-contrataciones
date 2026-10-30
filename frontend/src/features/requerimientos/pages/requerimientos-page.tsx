@@ -14,6 +14,7 @@ import {
   FileClock,
   CheckCircle2,
   Inbox,
+  Printer,
 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { SearchInput } from '@/components/shared/search-input';
@@ -56,8 +57,7 @@ import { formatRelative, cn } from '@/lib/utils';
 import type { Requerimiento } from '../types/requerimiento-types';
 import { apiClient } from '@/lib/api-client';
 import { useQuery } from '@tanstack/react-query';
-import { imprimirReporteDerivacion } from '@/lib/print-utils';
-import { Printer } from 'lucide-react';
+import { generarPdfDerivacion } from '@/lib/pdf-utils';
 
 const PRIORIDAD_STYLES: Record<string, string> = {
   BAJA: 'bg-slate-500/10 text-slate-600 border-slate-500/20',
@@ -155,26 +155,54 @@ export function RequerimientosPage() {
         observaciones: observaciones || null,
       },
       {
-        onSuccess: (res) => {
-          // ✅ ABRIR REPORTE AL DERIVAR EXITOSAMENTE
-          // Si es masivo, imprimimos el primero (o podrías iterar para imprimir varios)
-          if (res.requerimientos && res.requerimientos.length > 0) {
-            const primerReq = res.requerimientos[0];
-            const reqOriginal = items.find((i) => i.id === primerReq.requerimientoId);
+        onSuccess: (res: any) => {
+          const dataRes = res?.data || res;
+          const esMasivo = dataRes.requerimientos && dataRes.requerimientos.length > 1;
 
-            imprimirReporteDerivacion({
-              codigoRequerimiento: primerReq.codigoRequerimiento,
-              codigoDerivacion: res.codigoDerivacion,
+          if (esMasivo) {
+            // ✅ GENERAR PDF MASIVO CON TABLA DE DETALLE
+            const loteData = dataRes.requerimientos.map((r: any) => {
+              const reqOriginal = items.find((i) => i.id === r.requerimientoId);
+              return {
+                codigo: r.codigoRequerimiento,
+                titulo: reqOriginal?.titulo || '—',
+                persona: reqOriginal?.personaNombres || '—',
+                cargo: reqOriginal?.cargoNombre || '—',
+              };
+            });
+
+            // Tomamos los datos del primer requerimiento para la cabecera (unidad, etc.)
+            const primerReq = items.find((i) => i.id === dataRes.requerimientos[0].requerimientoId);
+
+            generarPdfDerivacion({
+              codigoRequerimiento: dataRes.codigoRequerimientoLote, // Este es el codigo_grupo
               fecha: new Date().toLocaleString('es-BO'),
-              titulo: reqOriginal?.titulo || '',
+              unidadSolicitante: primerReq?.unidadSolicitanteNombre || 'OFICIALIA MAYOR',
+              unidadDestino: 'DIRECCION DE RECURSOS HUMANOS',
+              observaciones: observaciones,
+              usuarioEnvio: 'OFICIALIA MAYOR',
+              esMasivo: true,
+              cantidadLote: dataRes.requerimientos.length,
+              requerimientosLote: loteData,
+            });
+          } else if (dataRes.requerimientos && dataRes.requerimientos.length === 1) {
+            // ✅ GENERAR PDF INDIVIDUAL (Si se derivó solo uno desde la tabla)
+            const r = dataRes.requerimientos[0];
+            const reqOriginal = items.find((i) => i.id === r.requerimientoId);
+
+            generarPdfDerivacion({
+              codigoRequerimiento: r.codigoRequerimiento,
+              fecha: new Date().toLocaleString('es-BO'),
               nroCertificacion: reqOriginal?.nroCertificacion || '',
+              titulo: reqOriginal?.titulo || '',
               personaNombres: reqOriginal?.personaNombres || '',
               personaDocumento: reqOriginal?.personaDocumento || '',
               cargoNombre: reqOriginal?.cargoNombre || '',
               unidadSolicitante: reqOriginal?.unidadSolicitanteNombre || '',
-              unidadDestino: 'RECURSOS HUMANOS', // El primer destino siempre es DRH
+              unidadDestino: 'DIRECCION DE RECURSOS HUMANOS',
               observaciones: observaciones,
-              usuarioEnvio: 'OFICINA MAYOR',
+              usuarioEnvio: 'OFICIALIA MAYOR',
+              esMasivo: false,
             });
           }
 
@@ -187,7 +215,6 @@ export function RequerimientosPage() {
     );
   };
 
-  // ✅ FUNCIÓN AUXILIAR PARA CALCULAR LOS DÍAS
   const calcularDiasAlerta = (r: Requerimiento) => {
     let dias = r.diasTranscurridos || 0;
     const fechaBase = r.fechaCreacion || (r as any).fechaSolicitud;
@@ -318,7 +345,7 @@ export function RequerimientosPage() {
     {
       key: 'acciones',
       header: '',
-      className: 'w-[100px] text-right', // Ampliamos un poco el ancho
+      className: 'w-[100px] text-right',
       render: (r) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           {String(r.estadoCodigo).toUpperCase() === 'REGISTRADO' && (
@@ -334,15 +361,14 @@ export function RequerimientosPage() {
               <Pencil className="size-4 text-primary" />
             </Button>
           )}
-          {/* ✅ BOTÓN DE RE-IMPRIMIR (solo si ya tiene código generado) */}
+          {/* BOTÓN DE RE-DESCARGAR PDF */}
           {r.codigo && (
             <Button
               variant="ghost"
               size="icon-sm"
               onClick={() => {
-                imprimirReporteDerivacion({
+                generarPdfDerivacion({
                   codigoRequerimiento: r.codigo!,
-                  codigoDerivacion: 'VER HISTORIAL', // Se puede obtener del historial
                   fecha: new Date().toLocaleString('es-BO'),
                   titulo: r.titulo,
                   nroCertificacion: r.nroCertificacion,
@@ -350,10 +376,12 @@ export function RequerimientosPage() {
                   personaDocumento: r.personaDocumento || '',
                   cargoNombre: r.cargoNombre || '',
                   unidadSolicitante: r.unidadSolicitanteNombre || '',
-                  unidadDestino: r.unidadActualNombre || 'DRH',
+                  unidadDestino: r.unidadActualNombre || 'DIRECCION DE RECURSOS HUMANOS',
+                  usuarioEnvio: 'OFICIALIA MAYOR',
+                  esMasivo: false,
                 });
               }}
-              title="Re-imprimir Reporte"
+              title="Descargar Reporte PDF"
             >
               <Printer className="size-4 text-slate-500 hover:text-slate-800" />
             </Button>
@@ -535,8 +563,6 @@ export function RequerimientosPage() {
         }}
         rowKey={(r) => r.id}
         onRowClick={(r) => setDetalleId(r.id)}
-
-        // ✅ RESALTADO DE FILA COMPLETA (Fondo rojo sólido)
         rowClassName={(r) => {
           const isRegistrado = String(r.estadoCodigo).toUpperCase() === 'REGISTRADO';
           const dias = calcularDiasAlerta(r);
@@ -544,8 +570,6 @@ export function RequerimientosPage() {
             ? 'bg-red-100/80 hover:bg-red-200/80 dark:bg-red-900/40 dark:hover:bg-red-900/60 transition-colors'
             : '';
         }}
-
-        // ✅ TOOLTIP CON EL MENSAJE
         rowTooltip={(r) => {
           const isRegistrado = String(r.estadoCodigo).toUpperCase() === 'REGISTRADO';
           const dias = calcularDiasAlerta(r);
@@ -587,7 +611,7 @@ export function RequerimientosPage() {
 
       <RequerimientoFormDialog
         open={formOpen}
-        onOpenChange={(o) => {
+        onOpenChange={(o: boolean) => {
           setFormOpen(o);
           if (!o) setReqAEditar(null);
         }}
