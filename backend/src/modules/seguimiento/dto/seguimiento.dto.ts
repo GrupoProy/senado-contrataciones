@@ -52,6 +52,7 @@ export const concluirRevisionSchema = z.object({
 export const elaborarContratoSchema = z
   .object({
     requerimientoId: idCoerced,
+    codigoCape: z.string().min(1, 'El Código CAPE es obligatorio').max(50).transform((v) => v.toUpperCase()),
     fechaDesde: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato YYYY-MM-DD').optional(),
     fechaHasta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato YYYY-MM-DD').optional(),
     fechaFirma: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato YYYY-MM-DD').optional().nullable(),

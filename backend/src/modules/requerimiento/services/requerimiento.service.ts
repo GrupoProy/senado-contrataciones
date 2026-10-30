@@ -2,6 +2,7 @@ import { transaction, query } from '../../../config/database';
 import { env } from '../../../config/env';
 import { RequerimientoRepository } from '../repositories/requerimiento.repository';
 import { SeguimientoService } from '../../seguimiento/services/seguimiento.service';
+import { ConsultarRequerimientosDto } from '../dto/requerimiento.dto';
 import {
   ConflictError,
   ForbiddenError,
@@ -352,6 +353,11 @@ export class RequerimientoService {
     }
     
     return this.repository.obtenerEstadisticas(unidadIdRestringida);
+  }
+
+
+    async consultar(dto: ConsultarRequerimientosDto) {
+    return this.repository.consultar(dto);
   }
 
   private async validarCatalogo(catalogo: string, codigo: string | null | undefined): Promise<void> {

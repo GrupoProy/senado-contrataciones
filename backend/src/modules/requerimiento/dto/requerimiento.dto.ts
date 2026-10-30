@@ -133,9 +133,19 @@ export const derivarMasivoDesdeRequerimientoSchema = z
     { message: 'No se permiten requerimientos duplicados' }
   );
 
+  export const consultarRequerimientosSchema = z.object({
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().optional().default(20),
+  codigo: z.string().optional(),
+  documento: z.string().optional(),
+  apellido: z.string().optional(),
+  unidadId: z.coerce.number().int().positive().optional(),
+});
+
 // ─── Tipos inferidos ─────────────────────────────────────────────────────
 export type CrearRequerimientoDto = z.infer<typeof crearRequerimientoSchema>;
 export type ActualizarRequerimientoDto = z.infer<typeof actualizarRequerimientoSchema>;
 export type ListarRequerimientosDto = z.infer<typeof listarRequerimientosSchema>;
 export type DerivarDesdeRequerimientoDto = z.infer<typeof derivarDesdeRequerimientoSchema>;
 export type DerivarMasivoDesdeRequerimientoDto = z.infer<typeof derivarMasivoDesdeRequerimientoSchema>;
+export type ConsultarRequerimientosDto = z.infer<typeof consultarRequerimientosSchema>;

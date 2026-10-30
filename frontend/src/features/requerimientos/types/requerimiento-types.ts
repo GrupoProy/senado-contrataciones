@@ -159,3 +159,12 @@ export interface DerivarMasivoResponse {
   }>;
   mensaje: string;
 }
+
+export interface ConsultarRequerimientosQuery {
+  page?: number;
+  limit?: number;
+  codigo?: string;
+  documento?: string;
+  apellido?: string;
+  unidadId?: number;
+}

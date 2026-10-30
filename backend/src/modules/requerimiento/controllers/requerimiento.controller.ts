@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { RequerimientoService } from '../services/requerimiento.service';
-import { ListarRequerimientosDto } from '../dto/requerimiento.dto';
+import { ListarRequerimientosDto , ConsultarRequerimientosDto } from '../dto/requerimiento.dto';
 import { ValidationError } from '../../../shared/errors/AppError';
 
 const service = new RequerimientoService();
@@ -178,5 +178,16 @@ export class RequerimientoController {
       const result = await service.obtenerEstadisticas(req.user!.usuarioId);
       res.json({ success: true, data: result });
     } catch (e) { next(e); }
+  }
+
+    async consultar(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      // ✅ Hacemos el casteo para que TypeScript acepte req.query
+      const query = req.query as unknown as ConsultarRequerimientosDto;
+      const result = await service.consultar(query);
+      res.json({ success: true, data: result });
+    } catch (e) {
+      next(e);
+    }
   }
 }

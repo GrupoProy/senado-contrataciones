@@ -10,6 +10,7 @@ import type {
   DerivarMasivoInput,
   DerivarResponse,
   DerivarMasivoResponse,
+  ConsultarRequerimientosQuery,
 } from '../types/requerimiento-types';
 
 export const requerimientoApi = {
@@ -55,4 +56,7 @@ export const requerimientoApi = {
     apiClient.post<DerivarMasivoResponse>('/requerimientos/derivar-masivo', input),
 
   obtenerEstadisticas: () => apiClient.get<Record<string, number>>('/requerimientos/stats'),
+
+  consultar: (query: ConsultarRequerimientosQuery = {}) =>
+    apiClient.get<PaginatedResponse<Requerimiento>>('/requerimientos/consultas', query),
 };

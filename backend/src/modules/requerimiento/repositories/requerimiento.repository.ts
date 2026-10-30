@@ -5,6 +5,7 @@ import {
   RequerimientoDetalleRow,
   RequerimientoListadoRow,
 } from '../entities/requerimiento.entity';
+import { ConsultarRequerimientosDto } from '../dto/requerimiento.dto';
 
 export interface PersonaRow {
   id: number;
@@ -563,4 +564,71 @@ export class RequerimientoRepository {
     result.rows.forEach((row) => { stats[row.estado_codigo] = parseInt(row.total, 10); });
     return stats;
   }
+
+
+
+  async consultar(dto: ConsultarRequerimientosDto) {
+    const { page, limit, codigo, documento, apellido, unidadId } = dto;
+    const offset = (page - 1) * limit;
+    const conditions: string[] = [];
+    const values: unknown[] = [];
+    let idx = 1;
+
+    if (codigo) {
+      conditions.push(`r.codigo ILIKE $${idx++}`);
+      values.push(`%${codigo}%`);
+    }
+    if (documento) {
+      conditions.push(`(p.numero_documento ILIKE $${idx} OR p.complemento ILIKE $${idx})`);
+      values.push(`%${documento}%`);
+      idx++;
+    }
+    if (apellido) {
+      conditions.push(`(p.primer_apellido ILIKE $${idx} OR p.segundo_apellido ILIKE $${idx})`);
+      values.push(`%${apellido}%`);
+      idx++;
+    }
+    if (unidadId) {
+      conditions.push(`(r.unidad_actual_id = $${idx} OR r.unidad_solicitante_id = $${idx})`);
+      values.push(unidadId);
+      idx++;
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const count = await query<{ total: string }>(
+      `SELECT COUNT(*)::text AS total
+         FROM ${this.schema}.requerimiento r
+         JOIN ${this.schema}.persona p ON p.id = r.persona_id
+         ${where}`,
+      values
+    );
+
+    const dataValues = [...values, limit, offset];
+    const data = await query<RequerimientoListadoRow>(
+      `SELECT r.id, r.codigo, r.titulo, r.estado_codigo AS "estadoCodigo",
+              r.fecha_creacion AS "fechaCreacion",
+              p.nombres || ' ' || p.primer_apellido AS "personaNombres",
+              p.numero_documento AS "personaDocumento",
+              ua.nombre AS "unidadActualNombre",
+              us.nombre AS "unidadSolicitanteNombre"
+         FROM ${this.schema}.requerimiento r
+         JOIN ${this.schema}.persona p ON p.id = r.persona_id
+         LEFT JOIN ${this.schema}.unidad_organizacional ua ON ua.id = r.unidad_actual_id
+         JOIN ${this.schema}.unidad_organizacional us ON us.id = r.unidad_solicitante_id
+         ${where}
+        ORDER BY r.fecha_creacion DESC
+        LIMIT $${idx++} OFFSET $${idx++}`,
+      dataValues
+    );
+
+    return {
+      data: data.rows,
+      total: parseInt(count.rows[0].total, 10),
+      page,
+      limit,
+    };
+  }
+
+
 }

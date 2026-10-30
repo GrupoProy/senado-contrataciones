@@ -90,6 +90,13 @@ export class SeguimientoService {
     });
   }
 
+
+
+
+
+
+
+
   async elaborarContrato(dto: ElaborarContratoDto, usuarioId: number, username: string) {
     const esAdmin = await this.requerimientoRepository.esAdministrador(usuarioId);
     const flujoId = await this.obtenerFlujoId();
@@ -144,13 +151,15 @@ export class SeguimientoService {
         );
         estadoFinalContrato = hayOtroEnCurso.rows.length > 0 ? 'PENDIENTE' : 'EN_CURSO';
 
+        // ✅ SE AGREGA codigo_cape AL UPDATE
         await client.query(
           `UPDATE ${this.schema}.contrato
               SET fecha_desde = $1, fecha_hasta = $2, salario_mes = $3, fecha_firma = $4, 
                   observaciones = COALESCE($5, observaciones), estado_codigo = $6,
-                  usuario_ultima_modificacion = $7, fecha_ultima_modificacion = CURRENT_TIMESTAMP
-            WHERE id = $8`,
-          [fechaDesde, fechaHasta, salarioMes, dto.fechaFirma ?? null, dto.observaciones ?? null, estadoFinalContrato, username, contratoId]
+                  codigo_cape = $7,
+                  usuario_ultima_modificacion = $8, fecha_ultima_modificacion = CURRENT_TIMESTAMP
+            WHERE id = $9`,
+          [fechaDesde, fechaHasta, salarioMes, dto.fechaFirma ?? null, dto.observaciones ?? null, estadoFinalContrato, dto.codigoCape, username, contratoId]
         );
       } else {
         const contratoEnCursoRes = await client.query<{ id: number; fecha_hasta: string }>(
@@ -180,11 +189,13 @@ export class SeguimientoService {
         }
 
         numeroContratoFinal = generarNumeroContrato();
+        
+        // ✅ SE AGREGA codigo_cape AL INSERT
         const contratoResult = await client.query<{ id: number }>(
           `INSERT INTO ${this.schema}.contrato
-             (requerimiento_id, persona_id, numero, fecha_desde, fecha_hasta, salario_mes, fecha_firma, observaciones, estado_codigo, usuario_creacion)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
-          [r.id, r.personaId, numeroContratoFinal, fechaDesde, fechaHasta, salarioMes, dto.fechaFirma ?? null, dto.observaciones ?? null, estadoFinalContrato, username]
+             (requerimiento_id, persona_id, numero, fecha_desde, fecha_hasta, salario_mes, fecha_firma, observaciones, estado_codigo, usuario_creacion, codigo_cape)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+          [r.id, r.personaId, numeroContratoFinal, fechaDesde, fechaHasta, salarioMes, dto.fechaFirma ?? null, dto.observaciones ?? null, estadoFinalContrato, username, dto.codigoCape]
         );
         contratoId = contratoResult.rows[0].id;
       }

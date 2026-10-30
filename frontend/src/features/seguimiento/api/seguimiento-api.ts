@@ -63,6 +63,7 @@ export const seguimientoApi = {
 
   elaborarContrato: (input: {
     requerimientoId: number;
+    codigoCape: string;
     fechaDesde?: string;
     fechaHasta?: string;
     fechaFirma?: string | null;

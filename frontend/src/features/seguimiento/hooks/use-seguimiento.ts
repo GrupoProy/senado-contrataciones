@@ -175,6 +175,7 @@ export function useElaborarContrato() {
   return useMutation({
     mutationFn: (input: {
       requerimientoId: number;
+      codigoCape: string;
       fechaDesde?: string;
       fechaHasta?: string;
       fechaFirma?: string | null;

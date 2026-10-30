@@ -12,6 +12,7 @@ import {
   listarRequerimientosSchema,
   derivarDesdeRequerimientoSchema,
   derivarMasivoDesdeRequerimientoSchema,
+  consultarRequerimientosSchema,
 } from '../dto/requerimiento.dto';
 
 const router = Router();
@@ -39,11 +40,13 @@ router.get(
   ),
   controller.obtenerProcesoActivo
 );
+
 router.get(
   '/stats',
   requirePermission('REQUERIMIENTOS_VER'),
   controller.obtenerEstadisticas
 );
+
 router.get(
   '/bandeja',
   requirePermission('REQUERIMIENTOS_VER'),
@@ -61,6 +64,13 @@ router.post(
   requirePermission('REQUERIMIENTOS_DERIVAR'),
   validate(derivarMasivoDesdeRequerimientoSchema),
   controller.derivarMasivo
+);
+
+// ✅ RUTA DE CONSULTAS (Validando el 'query' explícitamente)
+router.get(
+  '/consultas',
+  validate(consultarRequerimientosSchema, 'query'), 
+  controller.consultar
 );
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -100,7 +110,5 @@ router.post(
   validate(derivarDesdeRequerimientoSchema),
   controller.derivar
 );
-
-
 
 export default router;

@@ -8,6 +8,7 @@ import type {
   RequerimientosQuery,
   DerivarInput,
   DerivarMasivoInput,
+  ConsultarRequerimientosQuery,
 } from '../types/requerimiento-types';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -201,6 +202,14 @@ export function useRequerimientoStats() {
       // Si ya devuelve el objeto directo, simplemente lo retorna.
       return res?.data || res;
     },
+    staleTime: 30_000,
+  });
+}
+
+export function useConsultarRequerimientos(query: ConsultarRequerimientosQuery) {
+  return useQuery({
+    queryKey: ['requerimientos', 'consultas', query],
+    queryFn: () => requerimientoApi.consultar(query),
     staleTime: 30_000,
   });
 }

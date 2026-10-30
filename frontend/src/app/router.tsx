@@ -21,6 +21,7 @@ import { MatrizPage } from '@/features/matriz/pages/matriz-page';
 import { FlujosPage } from '@/features/flujos/pages/flujos-page';
 import { AuditoriaPage } from '@/features/auditoria/pages/auditoria-page';
 import { ParametrosPage } from '@/features/parametros/pages/parametros-page';
+import { ConsultasPage } from '@/features/requerimientos/pages/consultas-page';
 
 export function AppRouter() {
   return (
@@ -55,6 +56,7 @@ export function AppRouter() {
         <Route path="/flujos" element={<FlujosPage />} />
         <Route path="/auditoria" element={<AuditoriaPage />} />
         <Route path="/parametros" element={<ParametrosPage />} />
+        <Route path="/consultas" element={<ConsultasPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

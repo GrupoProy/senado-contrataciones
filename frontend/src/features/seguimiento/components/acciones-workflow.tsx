@@ -274,6 +274,7 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
   const [fechaFirma, setFechaFirma] = useState('');
+  const [codigoCape, setCodigoCape] = useState(''); // ✅ NUEVO ESTADO
 
   const user = useAuthStore((state) => state.usuario);
   const { data: unidades } = useUnidades({ soloActivas: true });
@@ -334,6 +335,7 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
     setFechaDesde('');
     setFechaHasta('');
     setFechaFirma('');
+    setCodigoCape(''); // ✅ LIMPIAR CAPE
     onClose();
   };
 
@@ -361,9 +363,11 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
           { onSuccess: onSuccessBase }
         );
       case 'ELABORAR_CONTRATO':
+        // ✅ SE ENVÍA EL CÓDIGO CAPE AL BACKEND
         return elaborarContrato.mutate(
           {
             requerimientoId: reqId,
+            codigoCape: codigoCape,
             fechaDesde: fechaDesde || undefined,
             fechaHasta: fechaHasta || undefined,
             observaciones: observaciones || null,
@@ -372,11 +376,7 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
         );
       case 'REGISTRAR_FIRMA':
         return registrarFirma.mutate(
-          {
-            requerimientoId: reqId,
-            fechaFirma: fechaFirma,
-            observaciones: observaciones || null,
-          },
+          { requerimientoId: reqId, fechaFirma: fechaFirma, observaciones: observaciones || null },
           { onSuccess: onSuccessBase }
         );
       case 'OBSERVAR':
@@ -422,7 +422,6 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
           { requerimientoId: reqId, observaciones, motivo },
           { onSuccess: onSuccessBase }
         );
-
       case 'DERIVAR':
         return derivar.mutate(
           { requerimientoId: reqId, motivo: motivo || null, observaciones: observaciones || null },
@@ -430,14 +429,10 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
             onSuccess: (res: any) => {
               const data = res?.data || res;
               const usuarioNombre = user ? `${user.nombres} ${user.primerApellido}` : 'Sistema';
-
-              // ✅ BUSCAMOS EL NOMBRE COMPLETO DE LA UNIDAD DESTINO
-              // Usamos el ID que devuelve el backend o buscamos por el código del destinoHint
               const codDestino = accion.destinoHint?.replace(' (cierre)', '');
               const unidadDestinoObj = data.unidadDestinoId
                 ? unidades?.find((u) => u.id === data.unidadDestinoId)
                 : unidades?.find((u) => u.codigo === codDestino);
-
               const nombreUnidadDestino = unidadDestinoObj?.nombre || accion.destinoHint || '—';
 
               generarPdfDerivacion({
@@ -448,13 +443,12 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
                 personaNombres: requerimiento.personaNombres || '',
                 personaDocumento: requerimiento.personaDocumento || '',
                 cargoNombre: requerimiento.cargoNombre || '',
-                unidadSolicitante: requerimiento.unidadActualNombre || '—', // Origen
-                unidadDestino: nombreUnidadDestino, // ✅ Nombre completo
+                unidadSolicitante: requerimiento.unidadActualNombre || '—',
+                unidadDestino: nombreUnidadDestino,
                 observaciones: observaciones || 'Ninguna',
                 usuarioEnvio: usuarioNombre,
                 esMasivo: false,
               });
-
               onSuccessBase();
             },
           }
@@ -464,11 +458,13 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
     }
   };
 
+  // ✅ SE AGREGA LA VALIDACIÓN DEL CODIGO CAPE
   const puedeEnviar =
     (!accion.requiereObservacion || observaciones.trim().length >= 5) &&
     (!accion.requiereMotivo || motivo.trim().length >= 5) &&
     (!accion.requiereUnidadResponsable || unidadResponsableId !== null) &&
-    (accion.tipo !== 'ELABORAR_CONTRATO' || (fechaDesde && fechaHasta)) &&
+    (accion.tipo !== 'ELABORAR_CONTRATO' ||
+      (fechaDesde && fechaHasta && codigoCape.trim() !== '')) &&
     (accion.tipo !== 'REGISTRAR_FIRMA' || fechaFirma !== '');
 
   const mostrarObservaciones =
@@ -557,8 +553,22 @@ function AccionDialog({ accion, requerimiento, onClose, onActionSuccess }: Dialo
                 </div>
               </div>
               <div className="space-y-3 rounded-lg border border-border p-4">
-                <p className="text-xs font-semibold">Fechas del contrato</p>
+                <p className="text-xs font-semibold">Datos del contrato</p>
                 <div className="grid gap-3 sm:grid-cols-2">
+                  {/* ✅ NUEVO INPUT: CODIGO CAPE */}
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Código CAPE *</Label>
+                    <Input
+                      value={codigoCape}
+                      onChange={(e) => setCodigoCape(e.target.value.toUpperCase())}
+                      placeholder="Ej. CAPE-123/2026"
+                      className="font-mono uppercase"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Ingrese el código de registro presupuestario o CAPE para este contrato.
+                    </p>
+                  </div>
+
                   <div className="space-y-2">
                     <Label>Fecha desde *</Label>
                     <Input
